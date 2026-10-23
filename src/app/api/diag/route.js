@@ -61,6 +61,25 @@ export async function GET(request) {
         ok: false,
         ms: Date.now() - started,
         error: String(error?.message || error),
+        cause: error?.cause
+          ? {
+              name: error.cause.name,
+              message: error.cause.message,
+              code: error.cause.code,
+              errno: error.cause.errno,
+              syscall: error.cause.syscall,
+              hostname: error.cause.hostname,
+            }
+          : null,
+        targetLength: String(probeTarget).length,
+        targetHead: String(probeTarget).slice(0, 160),
+        host: (() => {
+          try {
+            return new URL(probeTarget).hostname
+          } catch {
+            return 'unparseable'
+          }
+        })(),
       })
     }
   }
