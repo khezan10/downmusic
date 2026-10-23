@@ -3,24 +3,33 @@ import {
   getClientIP,
   isAllowedHost,
   isPrivateHost,
-  maskIP,
   safeFilename,
 } from '@/lib/format'
 import { rateLimit, redirectIsSafe } from '@/lib/rate-limit'
-import { logActivity } from '@/lib/mongodb'
-
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
-export const maxDuration = 60
 
 /**
- * Media CDNs this app is allowed to proxy.
+ * Media proxy.
  *
- * This is not an open proxy. The list is fixed by design (the two hosts the
- * resolver produces) plus an optional env extension, and private/loopback
- * addresses are rejected before the allowlist is even consulted. A public
- * `?url=` route that fetches anything is an open relay and an SSRF hole.
+ * **Runs on the edge runtime on purpose.** Measured from the deployed project:
+ * the Node runtime is refused by the media CDNs — googlevideo answers 403 and
+ * the converter serves an HTML page — while the same URLs answer 206 with real
+ * bytes from the edge runtime. That difference is the whole reason this route
+ * declares `runtime = 'edge'`.
+ *
+ * It is not an open proxy:
+ *   - http(s) only
+ *   - private/loopback/link-local addresses refused before the allowlist
+ *   - the host must be on a fixed allowlist (plus DOWNLOAD_ALLOWED_HOSTS)
+ *   - the URL the fetch actually landed on after redirects is checked again
+ *   - per-instance rate limiting with Retry-After
+ *
+ * The browser fetches it in 3 MB ranges (see lib/download-client.js) because a
+ * single response has a size ceiling.
  */
+
+export const runtime = 'edge'
+export const dynamic = 'force-dynamic'
+
 const MEDIA_HOSTS = ['googlevideo.com', 'sf-converter.com']
 
 function allowlist() {
@@ -31,7 +40,6 @@ function allowlist() {
   return [...MEDIA_HOSTS, ...extra]
 }
 
-/** Copy only headers that matter for a ranged file transfer. */
 const PASS_THROUGH = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag']
 
 export async function GET(request) {
@@ -41,9 +49,6 @@ export async function GET(request) {
   const filename = safeFilename(params.get('filename') || 'downmusic-audio')
 
   const ip = getClientIP(request.headers)
-
-  // A chunked download issues several ranged requests for one file, so the
-  // budget is per minute and generous for a real playlist.
   const limit = rateLimit(`${ip}:download`, { limit: 240, windowMs: 60_000 })
   if (!limit.allowed) {
     return NextResponse.json(
@@ -89,8 +94,9 @@ export async function GET(request) {
   try {
     const upstream = await fetch(target, {
       headers: upstreamHeaders,
-      signal: AbortSignal.timeout(55000),
+      signal: AbortSignal.timeout(55_000),
       cache: 'no-store',
+      redirect: 'follow',
     })
 
     // A CDN that answers 302 to a private address would turn this route into an
@@ -103,7 +109,10 @@ export async function GET(request) {
         isAllowed: isAllowedHost,
       })
     ) {
-      return NextResponse.json({ error: 'the media CDN redirected somewhere unsafe' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'the media CDN redirected somewhere unsafe' },
+        { status: 403 }
+      )
     }
 
     if (!upstream.ok && upstream.status !== 206) {
@@ -123,24 +132,9 @@ export async function GET(request) {
       headers.set('Content-Disposition', `attachment; filename="${filename}"`)
     }
 
-    // Count the transfer in the public activity log, but only the first chunk —
-    // a chunked download issues several ranged requests for one file.
-    if (!range || /^bytes=0-/.test(range)) {
-      await logActivity({
-        kind: 'transfer',
-        platform: 'spotify',
-        originalUrl: target.origin,
-        ip,
-        ipMasked: maskIP(ip),
-        title: filename,
-        upstream: target.hostname.endsWith('googlevideo.com') ? 'savefrom+youtube-music' : 'savefrom',
-        format: filename.split('.').pop(),
-      })
-    }
-
     return new NextResponse(upstream.body, { status: upstream.status, headers })
   } catch (error) {
-    console.error('proxy failed:', error)
+    console.error('proxy failed:', error?.message || error)
     return NextResponse.json({ error: 'the media CDN could not be reached' }, { status: 504 })
   }
 }

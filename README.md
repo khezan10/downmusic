@@ -41,7 +41,8 @@ Each step exists for a measured reason:
 | Runtime scoring | Title matching alone resolved *Never Gonna Give You Up* to a 9:20 Glastonbury performance. The Spotify runtime is now a hard signal. |
 | Two candidates, two attempts | The converter occasionally answers "no audio stream" for a valid video. A retry, then the runner-up upload, fixes it. |
 | Range proxy | The CDN sends no CORS headers, so the browser cannot fetch it directly. |
-| Chunked transfer | A serverless response is capped at ~4.5 MB; a 5-minute track is 4.8 MB. 3 MB chunks keep every response legal. |
+| **Edge runtime for the proxy** | The Node runtime is *refused* by these CDNs — googlevideo answers 403, the converter serves an HTML page — while the same URLs answer 206 with real bytes from the edge runtime. Measured, not assumed. |
+| Chunked transfer | A single response has a size ceiling; a 5-minute track is ~4.8 MB. 3 MB chunks keep every response legal. |
 | Browser MP3 encode | A real MP3 is a transcode. 4 minutes at 192 kbps is ~5.5 MB — over the same cap. The browser has no cap, and the audio never leaves the machine. |
 
 ## What works (verified 2026-10-24)
@@ -109,6 +110,11 @@ Environment (all optional except MongoDB for the log):
   and link-local addresses are rejected before the allowlist is consulted, and
   the *final* URL after a redirect is checked again — a CDN that answers 302 to
   `169.254.169.254` is refused.
+- **The proxy runs on the edge runtime**, because the Node runtime is refused by
+  both media CDNs. Nothing in that route needs a Node API: no filesystem, no
+  crypto, no database.
+- **`/api/diag` is ops-only**: it needs `CRON_SECRET`, answers 404 without it,
+  only inspects the app's own converter, and proxies no arbitrary URL.
 - **Filenames are sanitised** before they reach `Content-Disposition`, including
   control characters (a raw CR/LF there is header injection).
 - **Rate limiting** is per instance (30 resolves/min, 240 download requests/min)
