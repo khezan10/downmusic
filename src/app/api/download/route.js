@@ -92,12 +92,38 @@ export async function GET(request) {
   if (range) upstreamHeaders.Range = range
 
   try {
-    const upstream = await fetch(target, {
-      headers: upstreamHeaders,
-      signal: AbortSignal.timeout(55_000),
-      cache: 'no-store',
-      redirect: 'follow',
-    })
+    // The converter alternates between serving the file and serving its landing
+    // page (HTTP 200, `text/html`, 394 bytes) — measured at roughly 1 in 5
+    // requests. A landing page is not a download, so it is retried here rather
+    // than handed to the browser, which would abort on a 394-byte "file".
+    let upstream = null
+    let lastHtml = false
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      upstream = await fetch(target, {
+        headers: upstreamHeaders,
+        signal: AbortSignal.timeout(50_000),
+        cache: 'no-store',
+        redirect: 'follow',
+      })
+
+      const type = upstream.headers.get('content-type') || ''
+      if (type.includes('text/html')) {
+        lastHtml = true
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        continue
+      }
+
+      lastHtml = false
+      break
+    }
+
+    if (lastHtml || !upstream) {
+      return NextResponse.json(
+        { error: 'the media CDN returned a page instead of a file', retryable: true },
+        { status: 502 }
+      )
+    }
 
     // A CDN that answers 302 to a private address would turn this route into an
     // SSRF gadget, so the hop the fetch actually landed on has to pass the same
@@ -116,8 +142,9 @@ export async function GET(request) {
     }
 
     if (!upstream.ok && upstream.status !== 206) {
+      const retryable = upstream.status === 403 || upstream.status === 416 || upstream.status >= 500
       return NextResponse.json(
-        { error: `the media CDN answered HTTP ${upstream.status}` },
+        { error: `the media CDN answered HTTP ${upstream.status}`, retryable },
         { status: upstream.status === 404 ? 404 : 502 }
       )
     }

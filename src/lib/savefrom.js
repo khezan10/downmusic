@@ -433,6 +433,26 @@ export function pickVideo(data) {
   return videos.filter((v) => (seen.has(v.quality) ? false : seen.add(v.quality)))
 }
 
+/**
+ * The converter's own file link, used when the direct CDN URL is refused.
+ *
+ * `du.sf-converter.com/convert?payload=…` streams the same recording from
+ * SaveFrom's servers. It is a *video* file, so the browser has to decode the
+ * audio track out of it — but it is the only media host the deployed edge
+ * runtime can reach at all (googlevideo answers 403 to datacenter addresses).
+ */
+export function pickFallbackMedia(data) {
+  const media = Array.isArray(data?.url) ? data.url : []
+  const converters = media
+    .filter((m) => m && m.ext === 'mp4' && /^https:\/\/du\.sf-converter\.com\//.test(String(m.url)))
+    .map((m) => ({ quality: parseInt(m.subname, 10) || 0, url: m.url }))
+    .sort((a, b) => a.quality - b.quality)
+
+  // Prefer the smallest usable quality: the whole file is transferred to the
+  // browser, and 480p is already ~15 MB for a four-minute track.
+  return converters.find((c) => c.quality >= 480) || converters[0] || null
+}
+
 /** Title/thumbnail/duration from a SaveFrom payload. */
 export function describeMedia(data) {
   const meta = data?.meta || {}

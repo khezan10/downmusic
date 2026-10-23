@@ -19,6 +19,7 @@
 import {
   describeMedia,
   pickAudio,
+  pickFallbackMedia,
   pickVideo,
   resolveViaSaveFrom,
 } from './savefrom.js'
@@ -116,6 +117,7 @@ export async function resolveTrack(
   }
 
   const audio = raw ? pickAudio(raw) : null
+  const fallback = raw ? pickFallbackMedia(raw) : null
   const videos = raw ? pickVideo(raw).slice(0, 4) : []
   const described = raw ? describeMedia(raw) : null
 
@@ -140,6 +142,10 @@ export async function resolveTrack(
           format: audio.format, // original container; the browser outputs mp3
           quality: audio.quality,
           filename: `${artist ? `${artist} - ` : ''}${title}`,
+          // Same recording, served by the converter itself. The direct CDN link
+          // is refused to datacenter addresses, this one is not.
+          fallbackUrl: fallback?.url ?? null,
+          fallbackQuality: fallback?.quality ? `${fallback.quality}p` : null,
         }
       : null,
     videos: videos.map((v) => ({

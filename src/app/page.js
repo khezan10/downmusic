@@ -160,6 +160,7 @@ export default function Home() {
       try {
         return await downloadAsMp3(audio.url, filename || audio.filename, {
           duration: data.track?.duration || meta?.duration || 0,
+          fallbackUrl: audio.fallbackUrl || null,
           onStage,
         })
       } catch (error) {

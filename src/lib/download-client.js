@@ -120,15 +120,33 @@ function saveBlob(blob, filename) {
  * @param {string} filename   name to save as (extension is forced to .mp3)
  * @param {{ duration?: number, onStage?: (s: {stage: string, percent: number|null}) => void }} [options]
  */
-export async function downloadAsMp3(source, filename, { duration = 0, onStage } = {}) {
+export async function downloadAsMp3(source, filename, { duration = 0, fallbackUrl = null, onStage } = {}) {
   const report = (stage, percent) => {
     if (onStage) onStage({ stage, percent })
   }
 
-  report('fetching', null)
-  const audioBuffer = await fetchChunks(source, filename, (s) => {
-    if (onStage) onStage(s)
-  })
+  // Two sources, same recording: the direct CDN link and the converter's own
+  // file URL. The direct link is refused to datacenter addresses, so the second
+  // one is what usually answers in production.
+  const sources = [source, fallbackUrl].filter(Boolean)
+  let audioBuffer = null
+  let lastError = null
+
+  for (const candidate of sources) {
+    try {
+      report('fetching', null)
+      audioBuffer = await fetchChunks(candidate, filename, (s) => {
+        if (onStage) onStage(s)
+      })
+      break
+    } catch (error) {
+      lastError = error
+      // A 403 or a dead host means this source is unusable; try the next one.
+      if (candidate === sources[sources.length - 1]) throw error
+    }
+  }
+
+  if (!audioBuffer) throw lastError || new Error('The audio came back empty.')
 
   report('decoding', null)
   let mp3
