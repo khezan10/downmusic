@@ -24,7 +24,7 @@ First release that actually downloads something.
 - **Live backend monitor** with three real probes and the share of traffic each
   one served.
 - **Public activity log** in MongoDB, with masked IPs and a nightly cleanup cron.
-- **44 tests** on Node's built-in runner, covering URL parsing, embed
+- **48 tests** on Node's built-in runner, covering URL parsing, embed
   normalisation, match scoring, converter payloads, MP3 encoding and the proxy
   guards.
 

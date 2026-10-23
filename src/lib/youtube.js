@@ -239,10 +239,11 @@ export async function searchYouTubeMusic(query, { timeoutMs = 15000 } = {}) {
 /**
  * Order the candidates the resolver will actually try.
  *
- * The best-scoring hit is kept first, but it is often a YouTube Music "Song"
- * entity — an art track. The converter returns **video only** for those (3 mp4
- * entries, no m4a/opus), so a list of songs never yields audio. Every non-song
- * upload is therefore promoted ahead of the remaining songs.
+ * Uploads first, "Song" entities last — measured, not guessed: a YouTube Music
+ * "Song" entity (an art track) comes back from the converter as **video only**
+ * (3 mp4 entries, no m4a/opus), so trying one first is a guaranteed wasted round
+ * trip of a second or two. Every non-song upload keeps its score order, and the
+ * songs stay at the end as a last resort rather than disappearing.
  */
 export function orderCandidates(hits, { limit = 3 } = {}) {
   if (!Array.isArray(hits) || hits.length === 0) return []
@@ -255,7 +256,6 @@ export function orderCandidates(hits, { limit = 3 } = {}) {
     ordered.push(hit)
   }
 
-  push(hits[0])
   for (const hit of hits) if (hit.kind !== 'song') push(hit)
   for (const hit of hits) push(hit)
 

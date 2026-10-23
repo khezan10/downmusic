@@ -119,7 +119,7 @@ Environment (all optional except MongoDB for the log):
 
 ## Tests
 
-`node --test` — 44 tests, no test dependency:
+`node --test` — 48 tests, no test dependency:
 
 - URL parsing for every paste form, and the lookalike-host case
 - embed normalisation (cover tiers, nbsp artist strings, missing durations)

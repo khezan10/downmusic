@@ -160,21 +160,21 @@ test('a duration match beats a slightly better title when the runtime is right',
   assert.equal(bestHit(hits, 'Blinding Lights', 'The Weeknd', 200).videoId, 'exact')
 })
 
-test('a "Song" entity is kept first but never hides an upload', () => {
+test('uploads come before "Song" entities, songs stay as a last resort', () => {
   // Measured on the deployed function: lYBUbBu4W08 (Song) returns 3 mp4 entries
   // and no audio at all, while an upload of the same track returns m4a + opus.
-  // A candidate list of songs alone can therefore never produce a download.
+  // Trying a song first therefore wastes a round trip every single time.
   const ranked = [
     { videoId: 'song1', kind: 'song', title: 'Never Gonna Give You Up' },
     { videoId: 'song2', kind: 'song', title: 'Never Gonna Give You Up' },
     { videoId: 'upload', kind: null, title: 'Never Gonna Give You Up' },
-    { videoId: 'song3', kind: 'song', title: 'Never Gonna Give You Up' },
+    { videoId: 'lyric', kind: 'video', title: 'Never Gonna Give You Up' },
   ]
 
   const ordered = orderCandidates(ranked, { limit: 3 })
   assert.deepEqual(
     ordered.map((h) => h.videoId),
-    ['song1', 'upload', 'song2']
+    ['upload', 'lyric', 'song1']
   )
 })
 
@@ -189,6 +189,6 @@ test('orderCandidates deduplicates and handles an empty list', () => {
   ]
   assert.deepEqual(
     orderCandidates(withDupes, { limit: 5 }).map((h) => h.videoId),
-    ['a', 'b']
+    ['b', 'a']
   )
 })
