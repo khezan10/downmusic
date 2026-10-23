@@ -165,6 +165,8 @@ export default function Home() {
         })
       } catch (error) {
         lastError = error
+        // A dead CDN host, or a match whose runtime is wrong — both are worth
+        // one more candidate recording.
         if (!error.retryable) throw error
       }
     }

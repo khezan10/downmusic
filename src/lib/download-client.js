@@ -188,12 +188,26 @@ export async function downloadAsMp3(source, filename, { duration = 0, fallbackUr
   let mp3
   try {
     const decoded = await decodeAudio(audioBuffer)
+
+    // Wrong recording, caught before encoding: the match can land on a live or
+    // extended version of the same song (a 3:33 single found as a 9:20
+    // performance), and the title alone cannot tell them apart. The runtime can.
+    const expected = Number(duration) || 0
+    if (expected > 30 && Math.abs(decoded.duration - expected) > 20) {
+      const error = new Error(
+        `That file is ${Math.round(decoded.duration)}s long, but the track is ${expected}s — trying another match.`
+      )
+      error.retryable = true
+      throw error
+    }
+
     report('encoding', 0)
     mp3 = await encodeMp3(decoded, {
       bitrate: chooseBitrate(duration || decoded.duration),
       onProgress: (percent) => report('encoding', percent),
     })
   } catch (error) {
+    if (error.retryable) throw error
     // Decoding is the browser's job and it can refuse a container. Hand the
     // original bytes over rather than failing the download outright.
     saveBlob(new Blob([audioBuffer], { type: 'audio/mp4' }), filename)
