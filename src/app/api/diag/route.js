@@ -125,6 +125,9 @@ export async function GET(request) {
         ext: m?.ext,
         subname: m?.subname,
         name: m?.name,
+        // Full URL: the converter's payload links are opaque tokens and a
+        // truncated one answers 400, which looks like a broken endpoint.
+        url: m?.url,
         head: String(m?.url || '').slice(0, 110),
       })),
       audioTracks: trim(raw?.audioTracks),
