@@ -5,8 +5,8 @@
   "framework": "nextjs",
   "regions": ["sin1"],
   "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 30
+    "src/app/api/**/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -14,10 +14,5 @@
       "path": "/api/cron/cleanup",
       "schedule": "0 0 * * *"
     }
-  ],
-  "env": {
-    "MONGODB_URI": "@mongodb_uri",
-    "MONGODB_DB": "downmusic",
-    "CRON_SECRET": "@cron_secret"
-  }
+  ]
 }
