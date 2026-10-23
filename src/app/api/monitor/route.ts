@@ -37,6 +37,18 @@ const PROBES: Probe[] = [
       ),
   },
   {
+    id: 'deezer',
+    name: 'Deezer',
+    host: 'api.deezer.com',
+    role: 'primary',
+    scope: ['metadata'],
+    run: () =>
+      fetch('https://api.deezer.com/search?q=test&limit=1', {
+        headers: { 'User-Agent': UA, Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      }),
+  },
+  {
     id: 'itunes-search',
     name: 'iTunes Search',
     host: 'itunes.apple.com',

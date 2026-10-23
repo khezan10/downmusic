@@ -3,7 +3,8 @@
  *
  * VERIFIED LIVE (2026-10-23, from a datacenter IP):
  *   open.spotify.com/oembed              -> 200 (title + cover)
- *   itunes.apple.com/search              -> 200 (artist, album, artwork)
+ *   api.deezer.com/search                -> 200 (artist, album, cover, duration, rank)
+ *   itunes.apple.com/search              -> 200 (fallback metadata)
  *   music.youtube.com/youtubei/v1/search -> 200 (audio match search)
  *
  * VERIFIED DEAD / BLOCKED (do NOT re-add without testing first):
@@ -59,6 +60,22 @@ interface ItunesTrack {
   trackTimeMillis?: number;
 }
 
+interface DeezerTrack {
+  title?: string;
+  duration?: number;
+  rank?: number;
+  artist?: { name?: string };
+  album?: { title?: string; cover_xl?: string; cover_big?: string };
+}
+
+interface TrackMeta {
+  artist?: string;
+  album?: string;
+  thumbnail?: string;
+  duration?: number;
+  source: 'deezer' | 'itunes';
+}
+
 interface YTMusicHit {
   videoId: string;
   title: string;
@@ -95,7 +112,42 @@ async function fetchOEmbed(url: string): Promise<SpotifyEmbed | null> {
   }
 }
 
-async function fetchItunes(title: string): Promise<ItunesTrack | null> {
+async function fetchDeezer(title: string): Promise<TrackMeta | null> {
+  try {
+    const res = await fetch(
+      `https://api.deezer.com/search?q=${encodeURIComponent(title)}&limit=10`,
+      {
+        headers: { 'User-Agent': UA, Accept: 'application/json' },
+        signal: AbortSignal.timeout(12000),
+      }
+    );
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as { data?: DeezerTrack[] };
+    const results = data.data ?? [];
+    if (results.length === 0) return null;
+
+    // Several recordings share a title (covers, tributes, remasters). Deezer
+    // exposes a popularity `rank`, so an exact title match with the highest
+    // rank reliably identifies the canonical recording.
+    const target = title.toLowerCase().trim();
+    const exact = results.filter((t) => (t.title ?? '').toLowerCase().trim() === target);
+    const pool = exact.length > 0 ? exact : results;
+    const best = pool.reduce((a, b) => ((b.rank ?? 0) > (a.rank ?? 0) ? b : a));
+
+    return {
+      artist: best.artist?.name?.trim(),
+      album: best.album?.title?.trim(),
+      thumbnail: best.album?.cover_xl ?? best.album?.cover_big,
+      duration: best.duration,
+      source: 'deezer',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchItunes(title: string): Promise<TrackMeta | null> {
   try {
     const res = await fetch(
       `https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=song&limit=10&country=US`,
@@ -111,10 +163,23 @@ async function fetchItunes(title: string): Promise<ItunesTrack | null> {
 
     const target = title.toLowerCase().trim();
     const exact = results.find((r) => (r.trackName ?? '').toLowerCase().trim() === target);
-    return exact ?? results[0];
+    const best = exact ?? results[0];
+
+    return {
+      artist: best.artistName?.trim(),
+      album: best.collectionName?.trim(),
+      thumbnail: best.artworkUrl100?.replace('100x100bb', '600x600bb'),
+      duration: best.trackTimeMillis ? Math.round(best.trackTimeMillis / 1000) : undefined,
+      source: 'itunes',
+    };
   } catch {
     return null;
   }
+}
+
+/** Deezer first (has a popularity rank), iTunes as fallback. */
+async function fetchMetadata(title: string): Promise<TrackMeta | null> {
+  return (await fetchDeezer(title)) ?? (await fetchItunes(title));
 }
 
 async function searchYTMusic(query: string): Promise<YTMusicHit[]> {
@@ -276,14 +341,12 @@ export async function resolveSpotify(url: string): Promise<SpotifyResolveResult>
   }
 
   const title = oembed.title.trim();
-  const itunes = await fetchItunes(title);
+  const meta = await fetchMetadata(title);
 
-  const artist = itunes?.artistName?.trim();
-  const album = itunes?.collectionName?.trim();
-  const thumbnail =
-    (itunes?.artworkUrl100 ? itunes.artworkUrl100.replace('100x100bb', '600x600bb') : undefined) ??
-    oembed.thumbnail_url;
-  const duration = itunes?.trackTimeMillis ? Math.round(itunes.trackTimeMillis / 1000) : 0;
+  const artist = meta?.artist;
+  const album = meta?.album;
+  const thumbnail = meta?.thumbnail ?? oembed.thumbnail_url;
+  const duration = meta?.duration ?? 0;
 
   const query = [artist, title].filter(Boolean).join(' ');
   const hits = await searchYTMusic(query);
@@ -297,6 +360,12 @@ export async function resolveSpotify(url: string): Promise<SpotifyResolveResult>
     ? [{ quality: 'Audio', format: 'mp3', url: audioUrl }]
     : [];
 
+  const upstream = hit
+    ? meta
+      ? `${meta.source}+youtube-music`
+      : 'youtube-music'
+    : 'spotify-oembed';
+
   return {
     success: true,
     title,
@@ -306,7 +375,7 @@ export async function resolveSpotify(url: string): Promise<SpotifyResolveResult>
     duration: duration || hit?.duration || 0,
     downloads,
     audio: audioUrl ? { title: `${artist ?? 'Unknown'} - ${title}`, url: audioUrl } : undefined,
-    upstream: hit ? 'youtube-music' : 'spotify-oembed',
+    upstream,
     youtubeMusicUrl,
     spotifyUrl: url,
     note: audioUrl
