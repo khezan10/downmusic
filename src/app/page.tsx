@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Download, Music, Settings, Loader2, Check, AlertCircle, X, ChevronDown, Search, Trash2, Heart, Menu, X as CloseIcon } from 'lucide-react';
 import { designTokens } from '@/lib/design-tokens';
+import './page.css';
 
 interface DownloadItem {
   quality: string;
@@ -199,30 +200,7 @@ export default function DownMusic() {
       color: designTokens.colors['on-primary'],
       fontFamily: designTokens.typography['body-md'].fontFamily,
     }}>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Space+Mono&display=swap');
-        .reveal { opacity: 0; transform: translateY(20px) blur(4px); transition: opacity 0.6s ease-out, transform 0.6s ease-out, filter 0.6s ease-out; }
-        .reveal.visible { opacity: 1; transform: translateY(0) blur(0); filter: blur(0); }
-        .typewriter { overflow: hidden; white-space: nowrap; border-right: 2px solid #B4FF2B; animation: typewriter 2s steps(40) 1s forwards, blink 0.75s step-end infinite; }
-        @keyframes typewriter { from { width: 0; } to { width: 100%; } }
-        @keyframes blink { 50% { border-color: transparent; } }
-        .char-hover span { display: inline-block; transition: transform 0.15s ease, color 0.15s ease; }
-        .char-hover span:hover { transform: translateY(-4px) scale(1.1); color: #B4FF2B; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0A0B08; }
-        ::-webkit-scrollbar-thumb { background: #262626; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #B4FF2B; }
-        .stagger-0 { transition-delay: 0ms; }
-        .stagger-1 { transition-delay: 100ms; }
-        .stagger-2 { transition-delay: 160ms; }
-        .stagger-3 { transition-delay: 220ms; }
-        .stagger-4 { transition-delay: 280ms; }
-        .stagger-5 { transition-delay: 340ms; }
-        .stagger-6 { transition-delay: 400ms; }
-        .stagger-7 { transition-delay: 460ms; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(6,7,5,0.9); backdrop-filter: blur(8px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
-        .modal-content { background: #0A0B08; border: 1px solid #262626; border-radius: 12px; max-width: 480px; width: 100%; max-height: 90vh; overflow-y: auto; }
-      `}</style>
+      
 
       {/* Mobile Menu Button */}
       <button 
@@ -772,13 +750,7 @@ export default function DownMusic() {
         ))}
       </div>
 
-      <style jsx>{`
-        @keyframes slide-in {
-          from { opacity: 0; transform: translateX(100%); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        .animate-slide-in { animation: slide-in 0.3s ease-out; }
-      `}</style>
+      
     </div>
   );
 }
