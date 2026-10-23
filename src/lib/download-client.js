@@ -143,11 +143,10 @@ export async function downloadAsMp3(source, filename, { duration = 0, fallbackUr
     if (onStage) onStage({ stage, percent })
   }
 
-  // Two sources, same recording. The converter's own file URL comes first
-  // because it is the one a datacenter-hosted proxy can actually reach;
-  // the direct CDN link is kept as the fallback (it works from a home
-  // connection and from some edge instances).
-  const sources = [fallbackUrl, source].filter(Boolean)
+  // Fast path first: the audio-only stream is ~3.4 MB against ~15 MB for the
+  // converter's video file. The converter is the fallback for networks the CDN
+  // refuses.
+  const sources = [source, fallbackUrl].filter(Boolean)
   let audioBuffer = null
   let lastError = null
 
