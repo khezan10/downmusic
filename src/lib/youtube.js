@@ -262,6 +262,79 @@ export function orderCandidates(hits, { limit = 3 } = {}) {
   return ordered.slice(0, limit)
 }
 
+/**
+ * Search regular YouTube (InnerTube WEB client).
+ *
+ * YouTube Music's search ranks songs and performances, and the official studio
+ * upload often is not in it at all — for "Never Gonna Give You Up" the 3:33
+ * official video is absent while a 9:20 live take and a 3:54 TV performance are
+ * present. The regular search does return it, so the two are merged.
+ */
+export async function searchYouTubeWeb(query, { timeoutMs = 15000 } = {}) {
+  if (!query || !String(query).trim()) return []
+
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': UA,
+        Origin: 'https://www.youtube.com',
+        Referer: 'https://www.youtube.com/',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: 'WEB',
+            clientVersion: '2.20240101.00.00',
+            hl: 'en',
+            gl: 'US',
+          },
+        },
+        query: String(query),
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: 'no-store',
+    })
+    if (!res.ok) return []
+
+    const data = await res.json()
+    const renderers = []
+    const walk = (node, depth = 0) => {
+      if (!node || depth > 14 || renderers.length > 40) return
+      if (Array.isArray(node)) {
+        for (const child of node) walk(child, depth + 1)
+        return
+      }
+      if (typeof node !== 'object') return
+      if (node.videoRenderer) renderers.push(node.videoRenderer)
+      for (const value of Object.values(node)) walk(value, depth + 1)
+    }
+    walk(data?.contents, 0)
+
+    return renderers
+      .map((r) => {
+        const title = r?.title?.runs?.map((x) => x.text).join('') ?? ''
+        const channel = r?.ownerText?.runs?.[0]?.text ?? ''
+        const length = r?.lengthText?.simpleText ?? ''
+        return {
+          videoId: r?.videoId,
+          title: title.trim(),
+          artist: channel.trim(),
+          kind: null,
+          duration: parseClock(length),
+          thumbnail:
+            r?.thumbnail?.thumbnails?.[r.thumbnail.thumbnails.length - 1]?.url ?? '',
+        }
+      })
+      .filter((h) => h.videoId && h.title)
+      .slice(0, 12)
+  } catch {
+    return []
+  }
+}
+
 /** Title + artist -> best YouTube Music match, or null. */
 export async function findYouTubeMatch(title, artist, { duration = 0, ...options } = {}) {
   const [hit] = await findYouTubeMatches(title, artist, { duration, ...options })
@@ -277,12 +350,27 @@ export async function findYouTubeMatch(title, artist, { duration = 0, ...options
 export async function findYouTubeMatches(
   title,
   artist,
-  { duration = 0, limit = 3, ...options } = {}
+  { duration = 0, limit = 3, timeoutMs } = {}
 ) {
   const query = [artist, title].filter(Boolean).join(' ').trim()
   if (!query) return []
-  const hits = await searchYouTubeMusic(query, options)
-  return orderCandidates(rankHits(hits, title, artist, duration), { limit }).map((hit) => ({
+
+  // Both catalogues, merged: YouTube Music ranks songs and performances, the
+  // regular search still has the official upload.
+  const [musicHits, webHits] = await Promise.all([
+    searchYouTubeMusic(query, { timeoutMs }),
+    searchYouTubeWeb(query, { timeoutMs }),
+  ])
+
+  const seen = new Set()
+  const merged = []
+  for (const hit of [...musicHits, ...webHits]) {
+    if (!hit?.videoId || seen.has(hit.videoId)) continue
+    seen.add(hit.videoId)
+    merged.push(hit)
+  }
+
+  return orderCandidates(rankHits(merged, title, artist, duration), { limit }).map((hit) => ({
     ...hit,
     watchUrl: `https://www.youtube.com/watch?v=${hit.videoId}`,
     musicUrl: `https://music.youtube.com/watch?v=${hit.videoId}`,
