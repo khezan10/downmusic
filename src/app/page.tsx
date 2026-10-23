@@ -59,7 +59,6 @@ export default function DownMusic() {
   const [recentDownloads, setRecentDownloads] = useState<RecentDownload[]>([]);
   const [upstreams, setUpstreams] = useState<UpstreamStatus[]>([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [audioSource, setAudioSource] = useState<'auto' | 'savefrom' | 'tikwm' | 'socialdownloader'>('auto');
   const [notifications, setNotifications] = useState<string[]>([]);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<'downloads' | 'monitor'>('downloads');
@@ -132,11 +131,10 @@ export default function DownMusic() {
   const handleResolve = async (url: string) => {
     setIsResolving(true);
     try {
-      const upstream = audioSource === 'auto' ? undefined : audioSource;
       const res = await fetch('/api/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, upstream }),
+        body: JSON.stringify({ url }),
       });
       const data = await res.json();
       if (data.success) {
@@ -718,30 +716,17 @@ export default function DownMusic() {
             <div className="p-6 space-y-6">
               <div>
                 <label className="block mb-3" style={{ fontFamily: designTokens.typography['label-caps'].fontFamily, fontSize: designTokens.typography['label-caps'].fontSize, color: designTokens.colors.tertiary }}>
-                  AUDIO SOURCE
+                  RESOLUTION CHAIN
                 </label>
-                <select
-                  value={audioSource}
-                  onChange={(e) => setAudioSource(e.target.value as any)}
-                  className="w-full px-4 py-3"
-                  style={{
-                    fontFamily: designTokens.typography['body-md'].fontFamily,
-                    backgroundColor: designTokens.colors.primary,
-                    border: `1px solid ${designTokens.colors.line}`,
-                    borderRadius: designTokens.rounded.md,
-                    color: designTokens.colors['on-primary'],
-                    outline: 'none',
-                  }}
-                >
-                  <option value="auto">Auto (Best Available)</option>
-                  <option value="savefrom">SaveFrom (Primary)</option>
-                  <option value="tikwm">TikWM (TikTok)</option>
-                  <option value="socialdownloader">SocialDownloader (IG/Twitter/Pinterest)</option>
-                </select>
+                <div className="space-y-2" style={{ fontFamily: designTokens.typography.metadata.fontFamily, fontSize: designTokens.typography.metadata.fontSize, color: designTokens.colors.neutral }}>
+                  <p>Metadata — Spotify oEmbed → Deezer (rank match) → iTunes</p>
+                  <p>Audio match — YouTube Music search</p>
+                  <p>Download — {upstreams.length > 0 ? 'served only when an audio resolver is configured' : 'checking…'}</p>
+                </div>
               </div>
               <div className="pt-4 border-t" style={{ borderColor: designTokens.colors.line }}>
                 <p style={{ fontFamily: designTokens.typography.metadata.fontFamily, fontSize: designTokens.typography.metadata.fontSize, color: designTokens.colors.neutral }}>
-                  DownMusic uses free upstream resolvers. No API keys required.
+                  No API keys are required for metadata. A file download needs AUDIO_RESOLVER_URL, because every free Spotify converter blocks server IPs.
                 </p>
               </div>
             </div>
