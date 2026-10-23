@@ -40,7 +40,7 @@ function remaining(startedAt, budget) {
  */
 export async function resolveTrack(
   { title, artist, spotifyUrl = null, thumbnail = null, album = null, duration = null },
-  { budgetMs = DEFAULT_BUDGET_MS } = {}
+  { budgetMs = DEFAULT_BUDGET_MS, skip = 0 } = {}
 ) {
   const startedAt = Date.now()
 
@@ -52,9 +52,16 @@ export async function resolveTrack(
     // The Spotify runtime is the reference for choosing between the studio
     // recording and a live/alternate version of the same song.
     duration: duration || 0,
-    limit: 3,
+    limit: 3 + skip,
     timeoutMs: Math.min(15000, remaining(startedAt, budgetMs)),
   })
+
+  // `skip` lets the client come back for the next recording when the first one
+  // produced a URL the CDN no longer serves (the converter caches results, and a
+  // cached googlevideo host can be gone).
+  const usable = candidates.slice(skip)
+  candidates.length = 0
+  candidates.push(...usable)
 
   if (candidates.length === 0) {
     return {

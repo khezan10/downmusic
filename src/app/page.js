@@ -126,25 +126,58 @@ export default function Home() {
     }
   }
 
+  // Resolve on demand: a collection row carries only a title/artist, and a
+  // single track re-resolves when its CDN link has gone stale.
+  const resolveAudio = async (meta, skip = 0) => {
+    const res = await fetch('/api/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...meta, skip }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) throw new Error(data.error || 'Resolve failed.')
+    return data
+  }
+
+  /**
+   * Resolve, then download and encode.
+   *
+   * A media link can be dead on arrival: the converter caches its results, and a
+   * cached googlevideo host is sometimes gone. The proxy marks that failure
+   * `retryable`, and the next candidate recording is requested instead of
+   * showing the visitor an error they cannot act on.
+   */
+  const downloadTrackAudio = async (meta, filename, onStage) => {
+    let lastError = null
+
+    for (let skip = 0; skip < 3; skip += 1) {
+      const data = await resolveAudio(meta, skip)
+      const audio = data.track?.audio
+      if (!audio) {
+        throw new Error(data.track?.note || 'No audio stream was returned for this track.')
+      }
+
+      try {
+        return await downloadAsMp3(audio.url, filename || audio.filename, {
+          duration: data.track?.duration || meta?.duration || 0,
+          onStage,
+        })
+      } catch (error) {
+        lastError = error
+        if (!error.retryable) throw error
+      }
+    }
+
+    throw lastError || new Error('The audio could not be fetched.')
+  }
+
   const runDownload = async (key, meta, filename) => {
     setBusy(key)
     setProgress((prev) => ({ ...prev, [key]: { stage: 'resolving', percent: null } }))
     try {
-      const res = await fetch('/api/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(meta),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Resolve failed.')
-
-      const audio = data.track?.audio
-      if (!audio) throw new Error(data.track?.note || 'No audio stream was returned for this track.')
-
-      const saved = await downloadAsMp3(audio.url, filename || audio.filename, {
-        duration: data.track?.duration || meta?.duration || 0,
-        onStage: (stage) => setProgress((prev) => ({ ...prev, [key]: stage })),
-      })
+      const saved = await downloadTrackAudio(meta, filename, (stage) =>
+        setProgress((prev) => ({ ...prev, [key]: stage }))
+      )
 
       if (saved.format !== 'mp3') {
         setError(
@@ -168,17 +201,24 @@ export default function Home() {
     }
   }
 
-  // A single track result: the audio is already resolved by /api/resolve, so the
-  // click only has to transfer the bytes and encode them.
+  // A single track result: the click transfers the bytes and encodes them. The
+  // resolve happens again here so a stale media link can be replaced.
   const downloadResolved = async () => {
     if (!track?.audio) return
     setBusy('single')
     setProgress((prev) => ({ ...prev, single: { stage: 'fetching', percent: null } }))
     try {
-      const saved = await downloadAsMp3(track.audio.url, track.audio.filename, {
-        duration: track.duration || 0,
-        onStage: (stage) => setProgress((prev) => ({ ...prev, single: stage })),
-      })
+      const saved = await downloadTrackAudio(
+        {
+          title: track.title,
+          artist: track.artist,
+          duration: track.duration,
+          thumbnail: track.thumbnail || track.cover,
+          spotifyUrl: track.spotifyUrl,
+        },
+        track.audio.filename,
+        (stage) => setProgress((prev) => ({ ...prev, single: stage }))
+      )
 
       if (saved.format !== 'mp3') {
         setError(

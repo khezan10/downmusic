@@ -46,13 +46,18 @@ async function fetchChunks(source, filename, onStage) {
     if (res.status === 416) break // asked past the end
     if (!res.ok) {
       let message = `Download failed (HTTP ${res.status})`
+      let retryable = false
       try {
         const body = await res.json()
         if (body?.error) message = body.error
+        retryable = body?.retryable === true
       } catch {
         /* keep the status message */
       }
-      throw new Error(message)
+      const error = new Error(message)
+      error.retryable = retryable
+      error.status = res.status
+      throw error
     }
 
     const buffer = await res.arrayBuffer()

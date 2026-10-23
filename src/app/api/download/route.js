@@ -135,6 +135,14 @@ export async function GET(request) {
     return new NextResponse(upstream.body, { status: upstream.status, headers })
   } catch (error) {
     console.error('proxy failed:', error?.message || error)
-    return NextResponse.json({ error: 'the media CDN could not be reached' }, { status: 504 })
+    // A dead CDN host (the converter caches results, and a cached host can be
+    // gone) or a timeout is worth retrying with the next candidate recording —
+    // that is what `retryable` tells the client to do.
+    const code = error?.cause?.code || ''
+    const retryable = code === 'ENOTFOUND' || code === 'ECONNREFUSED' || error?.name === 'TimeoutError'
+    return NextResponse.json(
+      { error: 'the media CDN could not be reached', retryable, code: code || undefined },
+      { status: retryable ? 502 : 504 }
+    )
   }
 }

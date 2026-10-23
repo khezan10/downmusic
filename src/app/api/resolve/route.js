@@ -40,7 +40,7 @@ export async function POST(request) {
   try {
     // A single track selected from a collection.
     if (!body?.url) {
-      const { title, artist, thumbnail, album, spotifyUrl, duration } = body ?? {}
+      const { title, artist, thumbnail, album, spotifyUrl, duration, skip } = body ?? {}
       if (!title || typeof title !== 'string') {
         return NextResponse.json(
           { success: false, error: 'Send a Spotify link, or a track title.' },
@@ -48,14 +48,17 @@ export async function POST(request) {
         )
       }
 
-      const track = await resolveTrack({
-        title,
-        artist,
-        thumbnail,
-        album,
-        spotifyUrl,
-        duration,
-      })
+      const track = await resolveTrack(
+        {
+          title,
+          artist,
+          thumbnail,
+          album,
+          spotifyUrl,
+          duration,
+        },
+        { skip: Math.max(0, Math.min(3, Number(skip) || 0)) }
+      )
       if (!track.success) {
         return NextResponse.json({ success: false, error: track.error }, { status: 502 })
       }
@@ -79,7 +82,9 @@ export async function POST(request) {
     }
 
     const url = String(body.url).trim()
-    const result = await resolveSpotifyInput(url)
+    const result = await resolveSpotifyInput(url, {
+      skip: Math.max(0, Math.min(3, Number(body.skip) || 0)),
+    })
 
     if (!result.success) {
       return NextResponse.json(
