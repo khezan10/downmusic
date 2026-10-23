@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/*
+ * DownMusic — terminal-lime identity.
+ * Canvas #0A0B08, single signal colour #B4FF2B, muted #A8A8A8, hairline #262626.
+ * Animations are NOT gated behind prefers-reduced-motion: on machines where
+ * Windows animation effects are off the browser reports
+ * `prefers-reduced-motion: reduce`, and gating would remove the entrance
+ * animations entirely. Content is never hidden — only movement is decorative.
+ */
+
+:root {
+  --background: #0a0b08;
+  --foreground: #f5f5f5;
+  --lime: #b4ff2b;
+  --neutral: #a8a8a8;
+  --line: #262626;
+  --surface: #060705;
+  --error: #ff6b6b;
+
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "DotGothic16", "Space Mono", monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-lime: var(--lime);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --font-sans: var(--font-mono);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--lime);
+  color: var(--background);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--lime);
+}
+
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* Entrance: fade + 20px rise + deblur, 0.6s. Never gated by reduced-motion. */
+@keyframes dm-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.dm-reveal {
+  animation: dm-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes dm-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.dm-caret {
+  display: inline-block;
+  width: 0.6ch;
+  margin-left: 2px;
+  color: var(--lime);
+  animation: dm-caret 1s steps(1) infinite;
+}
+
+@keyframes dm-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(180, 255, 43, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(180, 255, 43, 0.15);
+  }
+}
+
+.dm-breathe {
+  animation: dm-breathe 3s ease-in-out infinite;
+}
+
+/* Legacy helpers used by page.tsx */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  filter: blur(6px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out, filter 0.6s ease-out;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+.stagger-0 { transition-delay: 0ms; }
+.stagger-1 { transition-delay: 100ms; }
+.stagger-2 { transition-delay: 160ms; }
+.stagger-3 { transition-delay: 220ms; }
+.stagger-4 { transition-delay: 280ms; }
+.stagger-5 { transition-delay: 340ms; }
+.stagger-6 { transition-delay: 400ms; }
+.stagger-7 { transition-delay: 460ms; }
