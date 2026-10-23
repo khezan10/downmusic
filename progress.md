@@ -24,10 +24,17 @@
 - Issue: Audio resolver belum berfungsi (503)
 
 ### Phase 2: Audio Resolver
-- [ ] Research working audio resolver approaches (serverless-compatible)
-- [ ] Implement custom resolver (Cloudflare Worker or external API integration)
+- [x] Research working audio resolver approaches (serverless-compatible)
+- [x] Implement custom resolver (client-side browser extraction)
 - [ ] Test resolver with real Spotify URLs
-- [ ] Integrate resolver into /api/download
+- [x] Integrate resolver into UI (handleAudioDownload)
+
+**Implementation:**
+- Created `src/lib/audio-extractor.ts` with client-side YouTube Music search + stream extraction
+- Uses Invidious/Piped APIs from browser to bypass server IP blocks
+- Integrated into `handleAudioDownload()` in page.tsx
+- Build: ✓ Compiled successfully
+- Commit: 7079c9d pushed to main
 
 ### Phase 3: UI/UX Improvements
 - [ ] Apply design from DESIGN.md
