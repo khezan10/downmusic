@@ -22,7 +22,25 @@ import { chooseBitrate, decodeAudio, encodeMp3, mp3Filename } from './mp3.js'
 const CHUNK_BYTES = 3 * 1024 * 1024
 const MAX_BYTES = 250 * 1024 * 1024
 
+/**
+ * Where the bytes come from.
+ *
+ * When `NEXT_PUBLIC_MEDIA_PROXY` is set (a Cloudflare Worker — see
+ * `infra/cloudflare-worker.js`) the browser fetches the media straight from it.
+ * That is the only path that works in production: YouTube answers 403 to
+ * Vercel's datacenter addresses, while Cloudflare's egress is accepted, and the
+ * Worker adds the CORS headers the CDN does not send — which is what makes a
+ * client-side MP3 encode possible.
+ *
+ * Without the variable the app falls back to its own edge proxy, which works
+ * from a normal network but not from Vercel.
+ */
+const MEDIA_PROXY = process.env.NEXT_PUBLIC_MEDIA_PROXY
+
 function proxiedUrl(source, filename) {
+  if (MEDIA_PROXY) {
+    return `${MEDIA_PROXY}?url=${encodeURIComponent(source)}&filename=${encodeURIComponent(filename)}`
+  }
   const params = new URLSearchParams({ url: source, filename })
   return `/api/download?${params.toString()}`
 }
