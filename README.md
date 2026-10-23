@@ -51,6 +51,7 @@ Each step exists for a measured reason:
 | Cloudflare Worker | Neither the Node nor the Edge runtime can fetch these CDNs from Vercel — both answer 403. The Worker reaches them and adds the CORS headers the CDN does not send. |
 | Chunked transfer | A single response has a size ceiling; a 5-minute track is ~4.8 MB. 3 MB chunks keep every response legal, and each chunk is retried on its own. |
 | Browser MP3 encode | A real MP3 is a transcode. 4 minutes at 192 kbps is ~5.5 MB — over the same cap. The browser has no cap, and the audio never leaves the machine. |
+| ID3 tags in the browser | lamejs writes bare frames. A v2.3 block (UTF-16 text, APIC cover) is prepended after the encode, so the file has a title, an artist and artwork in any player — the cover comes from Spotify's image CDN, which is CORS-open, so the image never touches our servers. |
 
 ## Upstreams
 
@@ -76,6 +77,7 @@ alone.
 | Capability | Result |
 |---|---|
 | Track link → full MP3 | ✅ 3:33 track → 5.13 MB MP3, 192 kbps, `ff fb` frame sync |
+| Tags + artwork | ✅ ID3v2.3: title, artist, album, track number, front cover (JPEG, ~70–120 KB) inside the file |
 | Album link → track list | ✅ 15 tracks with title, artist, runtime, Spotify link |
 | Playlist link → track list | ✅ 50 tracks (the embed page caps at 50) |
 | Per-track download from a collection | ✅ real MP3, correct filename |
