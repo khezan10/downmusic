@@ -21,17 +21,24 @@ Live: **https://downmusic.vercel.app**
 Spotify link
    │  open.spotify.com/embed/<type>/<id>     ← metadata + full track list
    ▼
-YouTube Music search (InnerTube)             ← scoring: "Song" entity + runtime
+YouTube search (InnerTube: Music + Web)      ← scoring: runtime, upload vs "Song"
    │
    ▼
-public converter (signed client)             ← direct CDN audio stream
+public converter (signed client)             ← direct audio stream + fallback file
    │
    ▼
-/api/download (range proxy, allowlisted)     ← 3 MB chunks, reassembled
+Cloudflare Worker proxy (CORS + Range)       ← Vercel's IPs are refused by the CDN
    │
    ▼
 browser: decode → lamejs → .mp3              ← 192 kbps, no server limit
 ```
+
+`infra/cloudflare-worker.js` is deployed as `downmusic-media` and configured
+through `NEXT_PUBLIC_MEDIA_PROXY`. It exists for one measured reason: the same
+media URL answers **403 to Vercel's addresses** and **206 to Cloudflare's**, so
+the browser cannot fetch it from our own functions. The Worker also supplies the
+CORS headers the CDN does not send, which is what makes a client-side MP3 encode
+possible.
 
 Each step exists for a measured reason:
 

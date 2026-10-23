@@ -254,7 +254,9 @@ export default function Home() {
         spotifyUrl: row.spotifyUrl,
         duration: row.duration,
       },
-      `${collection?.artist ? `${collection.artist} - ` : ''}${row.title}.mp3`
+      // The row's own artist, not the playlist owner — "Spotify - Housewife.mp3"
+      // is not a useful filename.
+      `${row.artist && row.artist !== 'Unknown artist' ? `${row.artist} - ` : ''}${row.title}.mp3`
     )
 
   const downloadAll = async () => {
