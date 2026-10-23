@@ -34,33 +34,51 @@ async function fetchChunks(source, filename, onStage) {
   let total = null
   let guard = 0
 
+  /** One range request, retried: a single flaky chunk must not discard 15 MB. */
+  const fetchRange = async (start, end) => {
+    let lastError = null
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const res = await fetch(endpoint, {
+          headers: { Range: `bytes=${start}-${end}` },
+          cache: 'no-store',
+        })
+
+        if (res.status === 416) return { done: true }
+        if (!res.ok) {
+          let message = `Download failed (HTTP ${res.status})`
+          let retryable = res.status >= 500
+          try {
+            const body = await res.json()
+            if (body?.error) message = body.error
+            if (body?.retryable === true) retryable = true
+          } catch {
+            /* keep the status message */
+          }
+          const error = new Error(message)
+          error.retryable = retryable
+          error.status = res.status
+          if (!retryable) throw error
+          lastError = error
+        } else {
+          return { buffer: await res.arrayBuffer(), res }
+        }
+      } catch (error) {
+        lastError = error
+        if (error.retryable === false) throw error
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
+    }
+    throw lastError || new Error('The audio could not be fetched.')
+  }
+
   while (guard < 400) {
     guard += 1
     const end = received + CHUNK_BYTES - 1
 
-    const res = await fetch(endpoint, {
-      headers: { Range: `bytes=${received}-${end}` },
-      cache: 'no-store',
-    })
-
-    if (res.status === 416) break // asked past the end
-    if (!res.ok) {
-      let message = `Download failed (HTTP ${res.status})`
-      let retryable = false
-      try {
-        const body = await res.json()
-        if (body?.error) message = body.error
-        retryable = body?.retryable === true
-      } catch {
-        /* keep the status message */
-      }
-      const error = new Error(message)
-      error.retryable = retryable
-      error.status = res.status
-      throw error
-    }
-
-    const buffer = await res.arrayBuffer()
+    const { buffer, res, done } = await fetchRange(received, end)
+    if (done) break
     if (buffer.byteLength === 0) break
 
     parts.push(buffer)
