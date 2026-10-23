@@ -153,7 +153,7 @@ export async function resolveTrack(
       filename: `${artist ? `${artist} - ` : ''}${title} (${v.quality}).mp4`,
     })),
     spotifyUrl,
-    upstream: audio ? 'savefrom+youtube-music' : match ? 'youtube-music' : 'spotify-embed',
+    upstream: audio ? 'savefrom+youtube-search' : match ? 'youtube-search' : 'spotify-embed',
     note,
   }
 }

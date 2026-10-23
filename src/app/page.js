@@ -540,9 +540,9 @@ export default function Home() {
           <p className="section-eyebrow">backend monitor</p>
           <h2 className="section-title">UPSTREAM STATUS_</h2>
           <p className="section-sub">
-            Three free services do the work: Spotify for the metadata and track list, YouTube
-            Music for the recording match, and a signed converter for the actual file. Probed
-            live — the same code path a download takes.
+            The whole chain, probed live with the same calls a download makes: Spotify for the
+            metadata and track list, YouTube for the recording match, a signed converter for the
+            audio, and the Worker that carries the bytes to your browser.
           </p>
         </header>
 
@@ -557,7 +557,7 @@ export default function Home() {
                 <article key={u.id} className={`monitor-card ${revealClass}`} {...reveal(9 + i)}>
                   <div className="monitor-card-top">
                     <span className={`monitor-role monitor-role--${u.role}`}>
-                      {u.role === 'primary' ? 'PRIMARY' : 'FALLBACK'}
+                      {u.role === 'transport' ? 'TRANSPORT' : 'PRIMARY'}
                     </span>
                     <span className={`monitor-status monitor-status--${u.status}`}>
                       <span className="monitor-dot" aria-hidden="true" />
@@ -577,27 +577,36 @@ export default function Home() {
                       <dt>latency</dt>
                       <dd>{u.status === 'ok' ? `${u.ms} ms` : '—'}</dd>
                     </div>
-                    <div>
-                      <dt>serving</dt>
-                      <dd>
-                        {u.share === null ? 'no traffic yet' : `${u.share}% of last ${monitor.sample}`}
-                      </dd>
-                    </div>
+                    {u.serves ? (
+                      <div>
+                        <dt>serving</dt>
+                        <dd>
+                          {u.share === null ? 'no traffic yet' : `${u.share}% of last ${monitor.sample}`}
+                        </dd>
+                      </div>
+                    ) : (
+                      <div>
+                        <dt>file bytes</dt>
+                        <dd>no</dd>
+                      </div>
+                    )}
                   </dl>
 
                   <p className="monitor-note">{u.detail}</p>
 
-                  <div
-                    className="monitor-bar"
-                    role="img"
-                    aria-label={
-                      u.share === null
-                        ? `${u.label}: no traffic yet`
-                        : `${u.label} served ${u.share}% of the last ${monitor.sample} downloads`
-                    }
-                  >
-                    <span style={{ width: `${u.share || 0}%` }} />
-                  </div>
+                  {u.serves && (
+                    <div
+                      className="monitor-bar"
+                      role="img"
+                      aria-label={
+                        u.share === null
+                          ? `${u.label}: no traffic yet`
+                          : `${u.label} served ${u.share}% of the last ${monitor.sample} downloads`
+                      }
+                    >
+                      <span style={{ width: `${u.share || 0}%` }} />
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

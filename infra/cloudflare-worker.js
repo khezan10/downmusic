@@ -19,7 +19,9 @@
  */
 
 const ALLOWED = ['googlevideo.com', 'sf-converter.com']
-const ALLOWED_ORIGINS = ['https://downmusic.vercel.app', 'http://localhost:3000']
+// Production only: a localhost origin would let a dev machine ride on the
+// deployed Worker, and nothing local belongs in this deployment.
+const ALLOWED_ORIGINS = ['https://downmusic.vercel.app']
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 

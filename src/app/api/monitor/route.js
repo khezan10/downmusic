@@ -47,16 +47,27 @@ export async function GET() {
     host: u.host,
     role: u.role,
     scope: u.scope,
+    serves: Boolean(u.serves),
     detail: u.detail,
     status: u.status,
     ms: u.ms,
-    share: sample > 0 && share[u.id] != null ? Math.round((share[u.id] / sample) * 100) : null,
+    // Only an upstream that hands over file bytes can have a traffic share;
+    // counting the metadata and matching steps as "serving" produced a
+    // meaningless 94/6 split.
+    share:
+      u.serves && sample > 0 && share[u.id] != null
+        ? Math.round((share[u.id] / sample) * 100)
+        : null,
   }))
 
-  // The converter is the only upstream that produces files, so it is the one
-  // that is "serving" when it is healthy.
+  // What a visitor is actually downloading through right now: the converter
+  // produces the file, the Worker carries it, so both must be up.
   const converter = upstreams.find((u) => u.id === 'savefrom')
-  const active = converter?.status === 'ok' ? converter : null
+  const transport = upstreams.find((u) => u.id === 'media-proxy')
+  const active =
+    converter?.status === 'ok' && transport?.status === 'ok'
+      ? { id: converter.id, label: `${converter.label} → ${transport.label}` }
+      : null
 
   return NextResponse.json({
     success: true,
@@ -65,7 +76,7 @@ export async function GET() {
     total: probe.total,
     probeMs: probe.ms,
     sample,
-    active: active ? { id: active.id, label: active.label } : null,
+    active,
     registered: UPSTREAMS.length,
   })
 }

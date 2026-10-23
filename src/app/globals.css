@@ -741,6 +741,18 @@ a {
   border: 1px dashed var(--line);
 }
 
+/* The Worker moves bytes but is not a source: a dotted outline reads as
+   "carries" rather than "provides". */
+.monitor-role--transport {
+  color: var(--ink);
+  border: 1px dotted rgba(245, 245, 245, 0.4);
+  background: rgba(245, 245, 245, 0.04);
+}
+
+.monitor-card:has(.monitor-role--transport) {
+  border-color: rgba(245, 245, 245, 0.16);
+}
+
 .monitor-status {
   display: inline-flex;
   align-items: center;
