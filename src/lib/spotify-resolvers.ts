@@ -147,37 +147,51 @@ async function searchYTMusic(query: string): Promise<YTMusicHit[]> {
       data?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]?.tabRenderer?.content
         ?.sectionListRenderer?.contents ?? [];
 
+    // YouTube Music nests song rows differently per renderer
+    // (musicShelfRenderer vs itemSectionRenderer), so collect every
+    // musicResponsiveListItemRenderer by walking the tree instead of
+    // hard-coding one path.
+    const renderers: any[] = [];
+    const collect = (node: any, depth: number) => {
+      if (!node || depth > 12 || renderers.length > 40) return;
+      if (Array.isArray(node)) {
+        for (const child of node) collect(child, depth + 1);
+        return;
+      }
+      if (typeof node !== 'object') return;
+      const item = node.musicResponsiveListItemRenderer;
+      if (item) renderers.push(item);
+      for (const value of Object.values(node)) collect(value, depth + 1);
+    };
+    collect(sections, 0);
+
     const hits: YTMusicHit[] = [];
-    for (const section of sections) {
-      const items =
-        section?.musicShelfRenderer?.contents ?? section?.itemSectionRenderer?.contents;
-      if (!Array.isArray(items)) continue;
+    for (const r of renderers) {
+      const cols = r.flexColumns ?? [];
+      const title: string = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text ?? '';
+      const subRuns: any[] =
+        cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs ?? [];
+      const artist: string = subRuns
+        .map((run: any) => run?.text ?? '')
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      const thumbs = r?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ?? [];
+      const thumbnail: string = thumbs[thumbs.length - 1]?.url ?? '';
+      const durText: string =
+        r?.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs?.[0]?.text ?? '';
 
-      for (const item of items) {
-        const r = item?.musicResponsiveListItemRenderer;
-        if (!r) continue;
+      // videoId lives on the title run's watchEndpoint (fallbacks: overlay, menu)
+      const videoId: string | undefined =
+        cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.navigationEndpoint
+          ?.watchEndpoint?.videoId ??
+        r?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer
+          ?.playNavigationEndpoint?.watchEndpoint?.videoId ??
+        r?.menu?.menuRenderer?.items?.[0]?.menuNavigationItemRenderer?.navigationEndpoint
+          ?.watchEndpoint?.videoId;
 
-        const cols = r.flexColumns ?? [];
-        const title: string =
-          cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text ?? '';
-        const artist: string =
-          cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.text ?? '';
-        const videoId: string | undefined = r?.navigationEndpoint?.watchEndpoint?.videoId;
-        const thumbs = r?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails ?? [];
-        const thumbnail: string = thumbs[thumbs.length - 1]?.url ?? '';
-        const durText: string =
-          r?.fixedColumns?.[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs?.[0]?.text ??
-          '';
-
-        if (videoId && title) {
-          hits.push({
-            videoId,
-            title,
-            artist,
-            duration: parseDuration(durText),
-            thumbnail,
-          });
-        }
+      if (videoId && title) {
+        hits.push({ videoId, title, artist, duration: parseDuration(durText), thumbnail });
       }
     }
     return hits.slice(0, 8);

@@ -19,6 +19,9 @@ interface ResolveResult {
   audio?: { title: string; url: string };
   upstream: string;
   platform: string;
+  note?: string;
+  youtubeMusicUrl?: string;
+  spotifyUrl?: string;
 }
 
 interface RecentDownload {
@@ -419,31 +422,91 @@ export default function DownMusic() {
               </div>
               
               <div className="border-t pt-6" style={{ borderColor: designTokens.colors.line }}>
-                <h4 className="mb-4" style={{
-                  fontFamily: designTokens.typography['label-caps'].fontFamily,
-                  fontSize: designTokens.typography['label-caps'].fontSize,
-                  color: designTokens.colors.tertiary,
-                }}>VIDEO DOWNLOADS</h4>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {resolveResult.downloads.map((item, i) => (
-                    <button
-                      key={`${item.quality}-${item.format}`}
-                      onClick={() => handleDownload(item)}
-                      className="flex items-center justify-between p-4 transition-all"
-                      style={{
-                        backgroundColor: designTokens.colors.primary,
-                        border: `1px solid ${designTokens.colors.line}`,
-                        borderRadius: designTokens.rounded.lg,
-                        color: designTokens.colors['on-primary'],
-                        fontFamily: designTokens.typography['body-md'].fontFamily,
-                        transitionDelay: `${STAGGER_DELAYS[i % STAGGER_DELAYS.length]}ms`,
-                      }}
-                    >
-                      <span>{item.quality} • {item.format.toUpperCase()}</span>
-                      <Download className="w-5 h-5" style={{ color: designTokens.colors.tertiary }} />
-                    </button>
-                  ))}
-                </div>
+                {resolveResult.downloads.length > 0 ? (
+                  <>
+                    <h4 className="mb-4" style={{
+                      fontFamily: designTokens.typography['label-caps'].fontFamily,
+                      fontSize: designTokens.typography['label-caps'].fontSize,
+                      color: designTokens.colors.tertiary,
+                    }}>AVAILABLE DOWNLOADS</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {resolveResult.downloads.map((item, i) => (
+                        <button
+                          key={`${item.quality}-${item.format}`}
+                          onClick={() => handleDownload(item)}
+                          className="flex items-center justify-between p-4 transition-all"
+                          style={{
+                            backgroundColor: designTokens.colors.primary,
+                            border: `1px solid ${designTokens.colors.line}`,
+                            borderRadius: designTokens.rounded.lg,
+                            color: designTokens.colors['on-primary'],
+                            fontFamily: designTokens.typography['body-md'].fontFamily,
+                            transitionDelay: `${STAGGER_DELAYS[i % STAGGER_DELAYS.length]}ms`,
+                          }}
+                        >
+                          <span>{item.quality} • {item.format.toUpperCase()}</span>
+                          <Download className="w-5 h-5" style={{ color: designTokens.colors.tertiary }} />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h4 className="mb-3" style={{
+                      fontFamily: designTokens.typography['label-caps'].fontFamily,
+                      fontSize: designTokens.typography['label-caps'].fontSize,
+                      color: designTokens.colors.tertiary,
+                    }}>NO AUDIO SOURCE CONFIGURED</h4>
+                    <p className="mb-4" style={{
+                      color: designTokens.colors.neutral,
+                      fontFamily: designTokens.typography['body-md'].fontFamily,
+                      fontSize: '0.85rem',
+                      lineHeight: 1.7,
+                    }}>
+                      {resolveResult.note ?? 'This deployment resolves track metadata only.'}
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {resolveResult.youtubeMusicUrl && (
+                        <a
+                          href={resolveResult.youtubeMusicUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-4"
+                          style={{
+                            backgroundColor: designTokens.colors['lime-faint'],
+                            border: `1px solid ${designTokens.colors.tertiary}`,
+                            borderRadius: designTokens.rounded.lg,
+                            color: designTokens.colors.tertiary,
+                            fontFamily: designTokens.typography['body-md'].fontFamily,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <span>Open in YouTube Music</span>
+                          <Music className="w-5 h-5" />
+                        </a>
+                      )}
+                      {resolveResult.spotifyUrl && (
+                        <a
+                          href={resolveResult.spotifyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-4"
+                          style={{
+                            backgroundColor: designTokens.colors.primary,
+                            border: `1px solid ${designTokens.colors.line}`,
+                            borderRadius: designTokens.rounded.lg,
+                            color: designTokens.colors['on-primary'],
+                            fontFamily: designTokens.typography['body-md'].fontFamily,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <span>Open in Spotify</span>
+                          <Music className="w-5 h-5" style={{ color: designTokens.colors.tertiary }} />
+                        </a>
+                      )}
+                    </div>
+                  </>
+                )}
                 
                 {resolveResult.audio && (
                   <div className="border-t pt-6 mt-6" style={{ borderColor: designTokens.colors.line }}>

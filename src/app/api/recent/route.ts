@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDownloadsCollection } from '@/lib/mongodb';
 
+// Reads query params and the DB, so it can never be prerendered.
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const page = parseInt(request.nextUrl.searchParams.get('page') || '1');
