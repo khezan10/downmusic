@@ -33,12 +33,12 @@ Cloudflare Worker proxy (CORS + Range)       ← Vercel's IPs are refused by the
 browser: decode → lamejs → .mp3              ← 192 kbps, no server limit
 ```
 
-`infra/cloudflare-worker.js` is deployed as `downmusic-media` and configured
-through `NEXT_PUBLIC_MEDIA_PROXY`. It exists for one measured reason: the same
-media URL answers **403 to Vercel's addresses** and **206 to Cloudflare's**, so
-the browser cannot fetch it from our own functions. The Worker also supplies the
-CORS headers the CDN does not send, which is what makes a client-side MP3 encode
-possible.
+`infra/cloudflare-worker.js` is deployed as the Worker `downmusic-media` and
+served at `https://media.mzg.my.id`, configured through `NEXT_PUBLIC_MEDIA_PROXY`.
+It exists for one measured reason: the same media URL answers **403 to Vercel's
+addresses** and **206 to Cloudflare's**, so the browser cannot fetch it from our
+own functions. The Worker also supplies the CORS headers the CDN does not send,
+which is what makes a client-side MP3 encode possible.
 
 Each step exists for a measured reason:
 
@@ -63,7 +63,7 @@ route and the resolve path all read it, and it is what the site displays.
 | 1 | Spotify Embed | `open.spotify.com` | metadata + track list | no |
 | 2 | YouTube Search | `music.youtube.com`, `www.youtube.com` | recording match | no |
 | 3 | SaveFrom Converter | `api-wh.savefrom.co.id` | audio stream (m4a) | yes |
-| 4 | Cloudflare Worker | `downmusic-media.khezanamartya.workers.dev` | media transfer (CORS + Range) | no |
+| 4 | Cloudflare Worker | `media.mzg.my.id` | media transfer (CORS + Range) | no |
 
 **Nothing local is registered, and nothing local may be.** No `localhost`, no
 `127.0.0.1`, no LAN address, no service running on a developer's machine: Vercel

@@ -1,7 +1,8 @@
 /**
  * Cloudflare Worker: media proxy for downmusic.
  *
- * Deployed at https://downmusic-media.khezanamartya.workers.dev
+ * Deployed at https://media.mzg.my.id (a Worker route on the mzg.my.id zone, so
+ * the deployment URL carries no personal account name).
  *
  * Why it exists: YouTube refuses media requests from datacenter addresses, and
  * Vercel's functions are datacenter addresses — the same URL answers 403 there

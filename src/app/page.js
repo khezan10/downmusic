@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Typewriter from '@/components/Typewriter'
 import IdleAnimations from '@/components/IdleAnimations'
 import { downloadAsMp3 } from '@/lib/download-client'
+import { fetchTrackCover } from '@/lib/cover'
 import { formatDuration, timeAgo } from '@/lib/format'
 
 // Entrance animation: fade + rise + deblur, staggered per element. Mirrors the
@@ -150,6 +151,11 @@ export default function Home() {
   const downloadTrackAudio = async (meta, filename, onStage) => {
     let lastError = null
 
+    // A playlist row carries no artwork, only a track link: ask Spotify for that
+    // one track's cover once, before the candidate loop, so a retry does not
+    // request it again.
+    const coverUrl = meta?.thumbnail || (await fetchTrackCover(meta?.spotifyUrl)) || null
+
     for (let skip = 0; skip < 3; skip += 1) {
       const data = await resolveAudio(meta, skip)
       const audio = data.track?.audio
@@ -168,7 +174,7 @@ export default function Home() {
             artist: data.track?.artist || meta?.artist,
             album: meta?.album || null,
             trackNumber: meta?.trackNumber || null,
-            coverUrl: meta?.thumbnail || data.track?.thumbnail || null,
+            coverUrl: coverUrl || data.track?.thumbnail || null,
           },
           onStage,
         })
@@ -258,7 +264,10 @@ export default function Home() {
       {
         title: row.title,
         artist: row.artist,
-        thumbnail: collection?.cover,
+        // An album's art is the album's art for every track, but a playlist's
+        // cover is a collage of other songs — never this track's artwork. For a
+        // playlist the per-track cover is looked up at download time.
+        thumbnail: collection?.kind === 'album' ? collection.cover : null,
         album: collection?.kind === 'album' ? collection.name : null,
         // Albums have a real track order; a playlist's numbering is not the
         // record's, so it is left out of the tag.
