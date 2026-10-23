@@ -75,6 +75,26 @@ test('audio prefers m4a over opus, then the higher bitrate', () => {
   assert.equal(picked.quality, '137 kbps')
 })
 
+test('a webm video entry is never treated as audio', () => {
+  // The payload lists webm 360/480/720/1080/1440/2160 — all video. Picking one
+  // as "audio" would produce a video file with an .mp3 name.
+  const payloadWithWebmOnly = {
+    url: [
+      { ext: 'webm', subname: '1080', url: GOOGLE_MP4_1080 },
+      { ext: 'mp4', subname: '1080', url: GOOGLE_MP4_1080 },
+    ],
+  }
+  assert.equal(pickAudio(payloadWithWebmOnly), null)
+})
+
+test('a payload with only the partial first response yields no audio', () => {
+  // What the converter returns on a fresh datacenter IP the first time: one
+  // video entry, no audio. The caller retries; the parser must not invent audio.
+  const partial = { url: [{ ext: 'mp4', subname: '360', url: GOOGLE_MP4_360 }] }
+  assert.equal(pickAudio(partial), null)
+  assert.equal(pickVideo(partial)[0].quality, '360p')
+})
+
 test('audio is null when only the HTML converter entries exist', () => {
   assert.equal(pickAudio({ url: [{ ext: 'mp4', subname: '720', url: CONVERTER_HTML }] }), null)
   assert.equal(pickAudio({ url: [] }), null)

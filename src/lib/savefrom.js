@@ -383,7 +383,14 @@ export function isDirectMediaUrl(url) {
   return /\/get$/i.test(parsed.pathname) && parsed.searchParams.has('uri')
 }
 
-const AUDIO_EXT_RANK = { m4a: 3, mp3: 3, opus: 2, webm: 1 }
+/**
+ * Which extensions count as audio.
+ *
+ * `webm` is deliberately absent: in this payload the webm entries are *video*
+ * (their `subname` is 360/480/720/1080/1440/2160), so treating webm as audio
+ * would hand out a video stream with an .mp3 name.
+ */
+const AUDIO_EXT_RANK = { m4a: 3, mp3: 3, opus: 2 }
 
 /**
  * Pick the best audio entry from a SaveFrom payload.

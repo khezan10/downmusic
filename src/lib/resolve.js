@@ -72,16 +72,24 @@ export async function resolveTrack(
     }
   }
 
-  // Two candidates, two attempts each. The converter is a third party and does
-  // answer with an empty media list for a valid video now and then; a retry or
-  // the runner-up upload is usually all it takes.
+  // Candidates are tried in order, and each one is asked more than once.
+  //
+  // Two things make the retry necessary, both measured from the deployed
+  // function rather than a home connection:
+  //   - the converter answers "no audio stream" for a valid video now and then
+  //   - on a fresh network the FIRST response carries only one video entry,
+  //     because the audio streams are still being prepared; a second call a
+  //     moment later returns m4a + opus as well
   let raw = null
   let match = candidates[0]
   let resolveError = null
 
-  for (const candidate of candidates) {
-    if (Date.now() - startedAt > budgetMs) break
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  for (const [index, candidate] of candidates.entries()) {
+    const attempts = index === 0 ? 3 : 2
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      if (Date.now() - startedAt > budgetMs) break
       try {
         const data = await resolveViaSaveFrom(candidate.watchUrl)
         if (pickAudio(data)) {
@@ -90,6 +98,9 @@ export async function resolveTrack(
           break
         }
         resolveError = 'The converter returned no audio stream for this track.'
+        // Give the converter time to finish preparing the audio streams before
+        // asking again — an immediate retry gets the same partial payload.
+        await delay(1500)
       } catch (error) {
         resolveError = error.message
         break // a real error will not fix itself on an immediate retry
