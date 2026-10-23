@@ -26,6 +26,45 @@ export async function GET(request) {
     return NextResponse.json({ error: 'not found' }, { status: 404 })
   }
 
+  // `probe=<url>` measures one ranged fetch from this deployment's network —
+  // how a media CDN treats a datacenter address is not observable from anywhere
+  // else, and a hang here is what a 504 in production actually is.
+  const probeTarget = request.nextUrl.searchParams.get('probe')
+  if (probeTarget) {
+    const started = Date.now()
+    try {
+      const res = await fetch(probeTarget, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: '*/*',
+          Range: 'bytes=0-2047',
+        },
+        signal: AbortSignal.timeout(45_000),
+        cache: 'no-store',
+      })
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      return NextResponse.json({
+        ok: true,
+        status: res.status,
+        ms: Date.now() - started,
+        contentType: res.headers.get('content-type'),
+        contentRange: res.headers.get('content-range'),
+        finalUrl: String(res.url).slice(0, 120),
+        bytes: bytes.length,
+        magic: Array.from(bytes.slice(0, 8))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join(' '),
+      })
+    } catch (error) {
+      return NextResponse.json({
+        ok: false,
+        ms: Date.now() - started,
+        error: String(error?.message || error),
+      })
+    }
+  }
+
   const target =
     request.nextUrl.searchParams.get('url') || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 
