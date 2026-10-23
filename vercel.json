@@ -1,18 +1,13 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["sin1"],
   "functions": {
-    "src/app/api/**/route.ts": {
-      "maxDuration": 60
-    }
+    "src/app/api/resolve/route.js": { "maxDuration": 60 },
+    "src/app/api/download/route.js": { "maxDuration": 60 },
+    "src/app/api/monitor/route.js": { "maxDuration": 60 }
   },
   "crons": [
-    {
-      "path": "/api/cron/cleanup",
-      "schedule": "0 0 * * *"
-    }
+    { "path": "/api/cron/cleanup", "schedule": "0 0 * * *" }
   ]
 }

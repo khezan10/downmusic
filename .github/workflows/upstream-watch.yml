@@ -1,0 +1,95 @@
+name: Upstream watch
+
+# The site depends on three free services. When one stops answering, nothing in
+# this repository changes — the site just starts failing for visitors. This job
+# turns that into a tracked issue instead of a silent outage.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe the deployed monitor
+        id: probe
+        run: |
+          set -euo pipefail
+          url="https://downmusic.vercel.app/api/monitor"
+          code=$(curl -s -o /tmp/monitor.json -w '%{http_code}' --max-time 60 "$url" || echo 000)
+          echo "http=$code" >> "$GITHUB_OUTPUT"
+
+          if [ "$code" != "200" ]; then
+            echo "healthy=0" >> "$GITHUB_OUTPUT"
+            echo "total=0" >> "$GITHUB_OUTPUT"
+            echo "lines<<EOF" >> "$GITHUB_OUTPUT"
+            echo "- monitor endpoint answered HTTP $code" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          healthy=$(jq -r '.healthy // 0' /tmp/monitor.json)
+          total=$(jq -r '.total // 0' /tmp/monitor.json)
+          echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "lines<<EOF"
+            jq -r '.upstreams[] | "- **\(.label)** (`\(.host)`): \(.status) in \(.ms) ms — \(.detail)"' /tmp/monitor.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write the summary
+        run: |
+          {
+            echo "### Upstream status"
+            echo
+            echo "healthy: ${{ steps.probe.outputs.healthy }}/${{ steps.probe.outputs.total }}"
+            echo
+            cat <<'EOF'
+          ${{ steps.probe.outputs.lines }}
+          EOF
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the tracking issue
+        if: steps.probe.outputs.healthy != steps.probe.outputs.total
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINES: ${{ steps.probe.outputs.lines }}
+        run: |
+          set -euo pipefail
+          title="Upstream health: a resolver is not answering"
+          body=$(cat <<EOF
+          The scheduled probe of \`/api/monitor\` found a problem.
+
+          $LINES
+
+          Re-run: \`gh workflow run upstream-watch.yml\`
+
+          This issue closes itself once every upstream answers again.
+          EOF
+          )
+
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+
+      - name: Close the tracking issue when everything answers
+        if: steps.probe.outputs.healthy == steps.probe.outputs.total
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Upstream health: a resolver is not answering"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Every upstream answers again (${{ steps.probe.outputs.healthy }}/${{ steps.probe.outputs.total }}). Closing."
+          fi

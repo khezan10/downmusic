@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Syntax check
+        run: npm run syntax
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build must not depend on real infrastructure. A placeholder is
+          # enough because lib/mongodb.js only *constructs* a client on demand.
+          MONGODB_URI: ''
+          NEXT_PUBLIC_SITE_URL: https://downmusic.vercel.app
+
+      - name: Test
+        run: npm test
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No real credentials in the tree
+        run: |
+          set -e
+          fail=0
+
+          # A connection string must use the *** or <user> placeholder.
+          bad=$(git grep -I -n 'mongodb+srv://' -- . ':(exclude)README.md' ':(exclude)*.md' \
+                | grep -vE '\*\*\*|<user>|<password>|<cluster>' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::a real MongoDB credential is committed"
+            echo "$bad"
+            fail=1
+          fi
+
+          # Provider token prefixes.
+          for prefix in ghp_ github_pat_ vcp_ sk-; do
+            hits=$(git grep -I -n "$prefix" -- . ':(exclude)package-lock.json' || true)
+            if [ -n "$hits" ]; then
+              echo "::error::possible $prefix token committed"
+              echo "$hits"
+              fail=1
+            fi
+          done
+
+          # .env files must never be tracked.
+          if git ls-files | grep -E '^\.env($|\.)' | grep -v '\.example$'; then
+            echo "::error::an .env file is tracked"
+            fail=1
+          fi
+
+          exit $fail
