@@ -32,14 +32,20 @@ export async function GET(request) {
   const probeTarget = request.nextUrl.searchParams.get('probe')
   if (probeTarget) {
     const started = Date.now()
+    const referer = request.nextUrl.searchParams.get('referer')
+    const origin = request.nextUrl.searchParams.get('origin')
+    const probeHeaders = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      Accept: '*/*',
+      Range: request.nextUrl.searchParams.get('range') || 'bytes=0-2047',
+    }
+    if (referer) probeHeaders.Referer = referer
+    if (origin) probeHeaders.Origin = origin
+
     try {
       const res = await fetch(probeTarget, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          Accept: '*/*',
-          Range: 'bytes=0-2047',
-        },
+        headers: probeHeaders,
         signal: AbortSignal.timeout(45_000),
         cache: 'no-store',
       })
