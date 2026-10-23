@@ -20,9 +20,10 @@
  */
 
 const ALLOWED = ['googlevideo.com', 'sf-converter.com']
-// Production only: a localhost origin would let a dev machine ride on the
+// Production origins only: the custom domain and the vercel.app host it was
+// promoted from. A localhost origin would let a dev machine ride on the
 // deployed Worker, and nothing local belongs in this deployment.
-const ALLOWED_ORIGINS = ['https://downmusic.vercel.app']
+const ALLOWED_ORIGINS = ['https://music.mzg.my.id', 'https://downmusic.vercel.app']
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
