@@ -18,6 +18,7 @@
  */
 
 import { chooseBitrate, decodeAudio, encodeMp3, mp3Filename } from './mp3.js'
+import { tagMp3Blob } from './id3.js'
 
 const CHUNK_BYTES = 3 * 1024 * 1024
 const MAX_BYTES = 250 * 1024 * 1024
@@ -147,16 +148,51 @@ function saveBlob(blob, filename) {
 }
 
 /**
- * Fetch `source` and save it as MP3.
+ * The cover, as bytes.
+ *
+ * Spotify's image CDN answers with CORS allowed, so the page can read it
+ * directly and the artwork never touches a server. Anything unexpected — a
+ * 404, a slow CDN, an HTML error page — returns null: a missing cover is a
+ * cosmetic loss, never a failed download.
+ */
+async function fetchCover(url) {
+  if (!url) return null
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return null
+
+    const mime = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim()
+    if (!mime.startsWith('image/')) return null
+
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    // ID3 has no length field for art beyond the frame size; keep it sane.
+    if (bytes.length < 512 || bytes.length > 4 * 1024 * 1024) return null
+
+    return { bytes, mime }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fetch `source` and save it as MP3, tagged with what a player needs.
  *
  * If the browser cannot decode the container, the original file is saved
  * instead and the caller is told — a working download beats a broken promise.
  *
  * @param {string} source     direct media URL from /api/resolve
  * @param {string} filename   name to save as (extension is forced to .mp3)
- * @param {{ duration?: number, onStage?: (s: {stage: string, percent: number|null}) => void }} [options]
+ * @param {object} [options]
+ * @param {number} [options.duration]     expected runtime, for the wrong-match gate
+ * @param {string} [options.fallbackUrl]  converter file, tried when the CDN refuses
+ * @param {object} [options.tags]         title/artist/album/trackNumber/coverUrl
+ * @param {(s: {stage: string, percent: number|null}) => void} [options.onStage]
  */
-export async function downloadAsMp3(source, filename, { duration = 0, fallbackUrl = null, onStage } = {}) {
+export async function downloadAsMp3(
+  source,
+  filename,
+  { duration = 0, fallbackUrl = null, tags = null, onStage } = {}
+) {
   const report = (stage, percent) => {
     if (onStage) onStage({ stage, percent })
   }
@@ -214,6 +250,12 @@ export async function downloadAsMp3(source, filename, { duration = 0, fallbackUr
     return { format: 'original', reason: error?.message || 'could not decode' }
   }
 
-  saveBlob(mp3, mp3Filename(filename))
-  return { format: 'mp3', bytes: mp3.size }
+  // Tags + artwork, written into the file itself: a downloaded MP3 should show
+  // its cover in Explorer, VLC, a phone player — not only inside this page.
+  report('tagging', null)
+  const cover = await fetchCover(tags?.coverUrl)
+  const { blob, tagged } = tagMp3Blob(mp3, { ...(tags || {}), cover })
+
+  saveBlob(blob, mp3Filename(filename))
+  return { format: 'mp3', bytes: blob.size, tagged, hasCover: Boolean(cover) }
 }

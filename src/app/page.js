@@ -161,6 +161,15 @@ export default function Home() {
         return await downloadAsMp3(audio.url, filename || audio.filename, {
           duration: data.track?.duration || meta?.duration || 0,
           fallbackUrl: audio.fallbackUrl || null,
+          // Tag what the player will show: the Spotify title/artist, and the
+          // cover the visitor already saw on the page.
+          tags: {
+            title: data.track?.title || meta?.title,
+            artist: data.track?.artist || meta?.artist,
+            album: meta?.album || null,
+            trackNumber: meta?.trackNumber || null,
+            coverUrl: meta?.thumbnail || data.track?.thumbnail || null,
+          },
           onStage,
         })
       } catch (error) {
@@ -251,6 +260,9 @@ export default function Home() {
         artist: row.artist,
         thumbnail: collection?.cover,
         album: collection?.kind === 'album' ? collection.name : null,
+        // Albums have a real track order; a playlist's numbering is not the
+        // record's, so it is left out of the tag.
+        trackNumber: collection?.kind === 'album' ? row.index : null,
         spotifyUrl: row.spotifyUrl,
         duration: row.duration,
       },
@@ -289,6 +301,7 @@ export default function Home() {
       }
       if (state.stage === 'decoding') return 'DECODING…'
       if (state.stage === 'encoding') return `MP3 ${state.percent ?? 0}%`
+      if (state.stage === 'tagging') return 'TAGGING…'
       return 'WORKING…'
     }
     if (done[key]) return 'SAVED ✓'
