@@ -124,6 +124,8 @@ export async function GET(request) {
       audioTracks: trim(raw?.audioTracks),
       itags: trim(raw?.itags),
       stream: trim(raw?.stream),
+      converter: trim(raw?.converter),
+      mp3Converter: trim(raw?.mp3Converter),
       videoQuality: trim(raw?.video_quality),
     })
   } catch (error) {
