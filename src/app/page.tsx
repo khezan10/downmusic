@@ -170,10 +170,26 @@ export default function DownMusic() {
     showNotification(`Downloading ${item.quality} ${item.format.toUpperCase()}`);
   };
 
-  const handleAudioDownload = () => {
+  const handleAudioDownload = async () => {
     if (resolveResult?.audio) {
       window.open(`/api/download?url=${encodeURIComponent(resolveResult.audio.url)}&filename=${encodeURIComponent(resolveResult.audio.title)}.mp3`, '_blank');
       showNotification('Downloading audio MP3');
+    } else if (resolveResult?.title && resolveResult?.author) {
+      // Client-side extraction fallback
+      showNotification('Starting client-side extraction...');
+      try {
+        const { extractAndDownload } = await import('@/lib/audio-extractor');
+        const result = await extractAndDownload(
+          resolveResult.title,
+          resolveResult.author,
+          (status) => showNotification(status)
+        );
+        if (!result.success) {
+          showNotification(result.error || 'Download failed');
+        }
+      } catch (e) {
+        showNotification('Client-side extraction failed');
+      }
     }
   };
 
