@@ -99,7 +99,7 @@ export async function GET(request) {
     let upstream = null
     let lastHtml = false
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
       upstream = await fetch(target, {
         headers: upstreamHeaders,
         signal: AbortSignal.timeout(50_000),
@@ -110,7 +110,10 @@ export async function GET(request) {
       const type = upstream.headers.get('content-type') || ''
       if (type.includes('text/html')) {
         lastHtml = true
-        await new Promise((resolve) => setTimeout(resolve, 250))
+        // 250 ms was too tight: the converter stays in "serving the landing
+        // page" mode for about a second, and every retry inside that window
+        // fails the same way.
+        await new Promise((resolve) => setTimeout(resolve, 450 + attempt * 250))
         continue
       }
 
