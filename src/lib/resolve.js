@@ -52,7 +52,7 @@ export async function resolveTrack(
     // The Spotify runtime is the reference for choosing between the studio
     // recording and a live/alternate version of the same song.
     duration: duration || 0,
-    limit: 2,
+    limit: 3,
     timeoutMs: Math.min(15000, remaining(startedAt, budgetMs)),
   })
 
@@ -86,9 +86,8 @@ export async function resolveTrack(
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-  for (const [index, candidate] of candidates.entries()) {
-    const attempts = index === 0 ? 3 : 2
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
+  for (const candidate of candidates) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       if (Date.now() - startedAt > budgetMs) break
       try {
         const data = await resolveViaSaveFrom(candidate.watchUrl)
@@ -98,9 +97,9 @@ export async function resolveTrack(
           break
         }
         resolveError = 'The converter returned no audio stream for this track.'
-        // Give the converter time to finish preparing the audio streams before
-        // asking again — an immediate retry gets the same partial payload.
-        await delay(1500)
+        // Give the converter a moment before asking again; an immediate repeat
+        // usually returns the same payload.
+        await delay(700)
       } catch (error) {
         resolveError = error.message
         break // a real error will not fix itself on an immediate retry

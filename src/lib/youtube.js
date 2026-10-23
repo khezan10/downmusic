@@ -236,6 +236,32 @@ export async function searchYouTubeMusic(query, { timeoutMs = 15000 } = {}) {
   }
 }
 
+/**
+ * Order the candidates the resolver will actually try.
+ *
+ * The best-scoring hit is kept first, but it is often a YouTube Music "Song"
+ * entity — an art track. The converter returns **video only** for those (3 mp4
+ * entries, no m4a/opus), so a list of songs never yields audio. Every non-song
+ * upload is therefore promoted ahead of the remaining songs.
+ */
+export function orderCandidates(hits, { limit = 3 } = {}) {
+  if (!Array.isArray(hits) || hits.length === 0) return []
+
+  const ordered = []
+  const seen = new Set()
+  const push = (hit) => {
+    if (!hit || seen.has(hit.videoId)) return
+    seen.add(hit.videoId)
+    ordered.push(hit)
+  }
+
+  push(hits[0])
+  for (const hit of hits) if (hit.kind !== 'song') push(hit)
+  for (const hit of hits) push(hit)
+
+  return ordered.slice(0, limit)
+}
+
 /** Title + artist -> best YouTube Music match, or null. */
 export async function findYouTubeMatch(title, artist, { duration = 0, ...options } = {}) {
   const [hit] = await findYouTubeMatches(title, artist, { duration, ...options })
@@ -246,8 +272,7 @@ export async function findYouTubeMatch(title, artist, { duration = 0, ...options
  * Ranked candidates, best first.
  *
  * More than one is returned on purpose: the converter occasionally answers with
- * no audio stream for a perfectly valid video, and the runner-up is usually the
- * same recording from another upload.
+ * no audio stream for a perfectly valid video, and a "Song" entity never has one.
  */
 export async function findYouTubeMatches(
   title,
@@ -257,11 +282,9 @@ export async function findYouTubeMatches(
   const query = [artist, title].filter(Boolean).join(' ').trim()
   if (!query) return []
   const hits = await searchYouTubeMusic(query, options)
-  return rankHits(hits, title, artist, duration)
-    .slice(0, limit)
-    .map((hit) => ({
-      ...hit,
-      watchUrl: `https://www.youtube.com/watch?v=${hit.videoId}`,
-      musicUrl: `https://music.youtube.com/watch?v=${hit.videoId}`,
-    }))
+  return orderCandidates(rankHits(hits, title, artist, duration), { limit }).map((hit) => ({
+    ...hit,
+    watchUrl: `https://www.youtube.com/watch?v=${hit.videoId}`,
+    musicUrl: `https://music.youtube.com/watch?v=${hit.videoId}`,
+  }))
 }

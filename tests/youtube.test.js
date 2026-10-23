@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { bestHit, extractVideoId, parseSearchPayload, parseSubtitle } from '../src/lib/youtube.js'
+import { bestHit, extractVideoId, orderCandidates, parseSearchPayload, parseSubtitle } from '../src/lib/youtube.js'
 
 /** A minimal but realistic InnerTube search payload. */
 function payload() {
@@ -158,4 +158,37 @@ test('a duration match beats a slightly better title when the runtime is right',
     { videoId: 'exact', title: 'Blinding Lights', artist: 'The Weeknd', kind: null, duration: 200 },
   ]
   assert.equal(bestHit(hits, 'Blinding Lights', 'The Weeknd', 200).videoId, 'exact')
+})
+
+test('a "Song" entity is kept first but never hides an upload', () => {
+  // Measured on the deployed function: lYBUbBu4W08 (Song) returns 3 mp4 entries
+  // and no audio at all, while an upload of the same track returns m4a + opus.
+  // A candidate list of songs alone can therefore never produce a download.
+  const ranked = [
+    { videoId: 'song1', kind: 'song', title: 'Never Gonna Give You Up' },
+    { videoId: 'song2', kind: 'song', title: 'Never Gonna Give You Up' },
+    { videoId: 'upload', kind: null, title: 'Never Gonna Give You Up' },
+    { videoId: 'song3', kind: 'song', title: 'Never Gonna Give You Up' },
+  ]
+
+  const ordered = orderCandidates(ranked, { limit: 3 })
+  assert.deepEqual(
+    ordered.map((h) => h.videoId),
+    ['song1', 'upload', 'song2']
+  )
+})
+
+test('orderCandidates deduplicates and handles an empty list', () => {
+  assert.deepEqual(orderCandidates([], {}), [])
+  assert.deepEqual(orderCandidates(null), [])
+
+  const withDupes = [
+    { videoId: 'a', kind: 'song' },
+    { videoId: 'a', kind: 'song' },
+    { videoId: 'b', kind: 'video' },
+  ]
+  assert.deepEqual(
+    orderCandidates(withDupes, { limit: 5 }).map((h) => h.videoId),
+    ['a', 'b']
+  )
 })
