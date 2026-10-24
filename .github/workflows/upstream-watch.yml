@@ -76,11 +76,11 @@ jobs:
           EOF
           )
 
-          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "$body"
+            gh issue comment --repo "$GITHUB_REPOSITORY" "$existing" --body "$body"
           else
-            gh issue create --title "$title" --body "$body"
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
           fi
 
       - name: Close the tracking issue when everything answers
@@ -89,7 +89,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           title="Upstream health: a resolver is not answering"
-          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
-            gh issue close "$existing" --comment "Every upstream answers again (${{ steps.probe.outputs.healthy }}/${{ steps.probe.outputs.total }}). Closing."
+            gh issue close --repo "$GITHUB_REPOSITORY" "$existing" --comment "Every upstream answers again (${{ steps.probe.outputs.healthy }}/${{ steps.probe.outputs.total }}). Closing."
           fi
